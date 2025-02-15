@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Fooocus Blank Template Generator</title>
+    <style>
+        :root {
+            --bg-color: #333;
+            --container-bg: #444;
+            --text-color: #fff;
+            --accent-color: #4CAF50;
+            --accent-hover: #45a049;
+            --box-color: #fff;
+            --shadow-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .light-theme {
+            --bg-color: #f0f0f0;
+            --container-bg: #fff;
+            --text-color: #333;
+            --accent-color: #4CAF50;
+            --accent-hover: #45a049;
+            --box-color: #ddd;
+            --shadow-color: rgba(0, 0, 0, 0.2);
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: all 0.3s ease;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            margin: 20px auto;
+            width: 90%;
+            max-width: 800px;
+            background-color: var(--container-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px var(--shadow-color);
+        }
+
+        h1, h2 {
+            color: var(--accent-color);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .col {
+            flex: 1;
+            padding: 10px;
+        }
+
+        .aspect-ratio-box {
+            background-color: var(--box-color);
+            margin: auto;
+            transition: all 0.3s ease;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        select, option {
+            padding: 10px;
+            margin: 10px 0;
+            width: 100%;
+            background-color: var(--container-bg);
+            color: var(--text-color);
+            border: 1px solid var(--accent-color);
+            border-radius: 4px;
+        }
+
+        canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Aspect Ratio Image Generator</h1>
+            <div class="controls">
+                <button id="viewToggle">Expanded View</button>
+                <button id="themeToggle">Light Theme</button>
+            </div>
+        </div>
+
+        <!-- Compact Mode View -->
+        <div id="compactView">
+            <div class="row">
+                <div class="col">
+                    <div id="aspectRatioBox" class="aspect-ratio-box"></div>
+                </div>
+                <div class="col">
+                    <select id="aspectRatio" onchange="updateAspectRatioBox()">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                </div>
+                <div class="col">
+                    <button onclick="generateImageCompact()">Generate Image</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Expanded Mode View -->
+        <div id="expandedView" style="display: none;">
+            <div id="aspectRatioRows">
+                <!-- Rows will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        const aspectRatios = [
+            { dimensions: "704x1408", ratio: "1:2" },
+            { dimensions: "768x1344", ratio: "14:7" },
+            { dimensions: "832x1216", ratio: "13:19" },
+            { dimensions: "896x1152", ratio: "7:9" },
+            { dimensions: "960x1088", ratio: "15:17" },
+            { dimensions: "1024x1024", ratio: "1:1" },
+            { dimensions: "1088x960", ratio: "17:15" },
+            { dimensions: "1152x896", ratio: "19:7" },
+            { dimensions: "1216x832", ratio: "19:13" },
+            { dimensions: "1344x768", ratio: "7:4" },
+            { dimensions: "1408x704", ratio: "2:1" },
+            { dimensions: "1536x640", ratio: "12:5" },
+            { dimensions: "1664x576", ratio: "26:9" },
+            { dimensions: "704x1344", ratio: "11:21" },
+            { dimensions: "768x1280", ratio: "3:5" },
+            { dimensions: "832x1152", ratio: "13:18" },
+            { dimensions: "896x1088", ratio: "14:17" },
+            { dimensions: "960x1024", ratio: "15:16" },
+            { dimensions: "1024x960", ratio: "16:15" },
+            { dimensions: "1088x896", ratio: "17:14" },
+            { dimensions: "1152x832", ratio: "18:13" },
+            { dimensions: "1280x768", ratio: "5:3" },
+            { dimensions: "1344x704", ratio: "21:11" },
+            { dimensions: "1472x704", ratio: "23:11" },
+            { dimensions: "1600x640", ratio: "5:2" },
+            { dimensions: "1728x576", ratio: "3:1" }
+        ];
+
+        // Populate dropdown for compact view
+        function populateDropdown() {
+            const select = document.getElementById('aspectRatio');
+            select.innerHTML = '';
+            
+            aspectRatios.forEach(item => {
+                const option = document.createElement('option');
+                option.value = `${item.dimensions}|${item.ratio}`;
+                option.textContent = `${item.ratio} (${item.dimensions})`;
+                select.appendChild(option);
+            });
+        }
+
+        function updateAspectRatioBox() {
+            const aspectRatioSelect = document.getElementById('aspectRatio');
+            const [dimensions, aspectRatio] = aspectRatioSelect.value.split('|');
+            const [width, height] = dimensions.split('x').map(Number);
+
+            const aspectRatioBox = document.getElementById('aspectRatioBox');
+            aspectRatioBox.style.width = '100px';
+            aspectRatioBox.style.height = (100 * height / width) + 'px';
+            if (width > height) {
+                aspectRatioBox.style.height = '100px';
+                aspectRatioBox.style.width = (100 * width / height) + 'px';
+            }
+        }
+
+        // Generate expanded view rows
+        function generateRow(aspectRatio) {
+            const [width, height] = aspectRatio.dimensions.split('x').map(Number);
+
+            const row = document.createElement('div');
+            row.className = 'row';
+
+            const col1 = document.createElement('div');
+            col1.className = 'col';
+            const aspectRatioBox = document.createElement('div');
+            aspectRatioBox.className = 'aspect-ratio-box';
+            aspectRatioBox.style.height = '50px';
+            aspectRatioBox.style.width = (50 * width / height) + 'px';
+            if (width > height) {
+                aspectRatioBox.style.width = '100px';
+                aspectRatioBox.style.height = (100 * height / width) + 'px';
+            }
+            col1.appendChild(aspectRatioBox);
+
+            const col2 = document.createElement('div');
+            col2.className = 'col';
+            col2.innerHTML = `<p>Aspect Ratio: ${aspectRatio.ratio}</p><p>Dimensions: ${aspectRatio.dimensions}px</p>`;
+
+            const col3 = document.createElement('div');
+            col3.className = 'col';
+            const generateButton = document.createElement('button');
+            generateButton.textContent = 'Generate Image';
+            generateButton.onclick = () => generateImage(aspectRatio);
+            col3.appendChild(generateButton);
+
+            row.appendChild(col1);
+            row.appendChild(col2);
+            row.appendChild(col3);
+
+            return row;
+        }
+
+        function updateAspectRatioRows() {
+            const aspectRatioRows = document.getElementById('aspectRatioRows');
+            aspectRatioRows.innerHTML = '';
+
+            aspectRatios.forEach(aspectRatio => {
+                const row = generateRow(aspectRatio);
+                aspectRatioRows.appendChild(row);
+            });
+        }
+
+        function generateImageCompact() {
+            const aspectRatioSelect = document.getElementById('aspectRatio');
+            const [dimensions, ratio] = aspectRatioSelect.value.split('|');
+            generateImage({ dimensions, ratio });
+        }
+
+        function generateImage(aspectRatio) {
+            const [width, height] = aspectRatio.dimensions.split('x').map(Number);
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+
+            canvas.width = width;
+            canvas.height = height;
+
+            context.fillStyle = '#FFFFFF';
+            context.fillRect(0, 0, width, height);
+
+            context.fillStyle = '#000000';
+            context.font = '14px Arial';
+            context.fillText(`Aspect Ratio: ${aspectRatio.ratio}, ${width}x${height}px`, 10, height - 10);
+
+            const date = new Date();
+            const fileName = `AR-${aspectRatio.ratio.replace(':', 'by')}-${(date.getMonth()+1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}${date.getFullYear().toString().slice(-2)}-${date.getHours().toString().padStart(2, '0')}${date.getMinutes().toString().padStart(2, '0')}${date.getSeconds().toString().padStart(2, '0')}`;
+
+            const downloadLink = document.createElement('a');
+            downloadLink.download = `${fileName}.jpeg`;
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                downloadLink.href = url;
+                downloadLink.click();
+            }, 'image/jpeg', 1.0);
+        }
+
+        // Toggle between views
+        function toggleView() {
+            const compactView = document.getElementById('compactView');
+            const expandedView = document.getElementById('expandedView');
+            const viewToggle = document.getElementById('viewToggle');
+            
+            if (compactView.style.display !== 'none') {
+                compactView.style.display = 'none';
+                expandedView.style.display = 'block';
+                viewToggle.textContent = 'Compact View';
+            } else {
+                compactView.style.display = 'block';
+                expandedView.style.display = 'none';
+                viewToggle.textContent = 'Expanded View';
+            }
+        }
+
+        // Toggle theme
+        function toggleTheme() {
+            const body = document.body;
+            const themeToggle = document.getElementById('themeToggle');
+            
+            body.classList.toggle('light-theme');
+            if (body.classList.contains('light-theme')) {
+                themeToggle.textContent = 'Dark Theme';
+            } else {
+                themeToggle.textContent = 'Light Theme';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            populateDropdown();
+            updateAspectRatioBox();
+            updateAspectRatioRows();
+            
+            // Setup event listeners
+            document.getElementById('viewToggle').addEventListener('click', toggleView);
+            document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+        });
+    </script>
+</body>
+</html>
