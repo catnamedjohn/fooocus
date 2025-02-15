@@ -1,0 +1,500 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aspect Ratio Finder & Cropper</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f8f9fa;
+            --text-color: #333;
+            --accent-color: #5cb85c;
+            --error-color: #d9534f;
+            --border-color: #ddd;
+            --background-color: white;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1, h2 {
+            color: var(--primary-color);
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 5px;
+            padding: 30px;
+            cursor: pointer;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary-color);
+        }
+
+        #imageUpload {
+            display: none;
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .btn:hover {
+            background-color: #3a7bc8;
+        }
+
+        .btn-success {
+            background-color: var(--accent-color);
+        }
+
+        .btn-success:hover {
+            background-color: #4cae4c;
+        }
+
+        select, input {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            font-size: 16px;
+        }
+
+        .image-preview-container {
+            margin: 20px 0;
+            position: relative;
+            display: flex;
+            justify-content: center;
+        }
+
+        .image-info {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 4px;
+            padding: 10px;
+            margin: 15px 0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .cropper-container {
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        .action-buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+
+        .download-options {
+            margin-top: 20px;
+        }
+
+        /* Dark theme styles */
+        body.dark {
+            background-color: #333;
+            color: #f8f9fa;
+        }
+
+        body.dark .container {
+            background-color: #444;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        body.dark .upload-area {
+            border-color: #555;
+        }
+
+        body.dark .btn {
+            background-color: #5cb85c;
+        }
+
+        body.dark .btn:hover {
+            background-color: #4cae4c;
+        }
+
+        body.dark select, body.dark input {
+            background-color: #555;
+            color: #f8f9fa;
+            border: 1px solid #666;
+        }
+    </style>
+</head>
+<body class="dark"> <!-- Default theme is dark -->
+    <div class="container">
+        <h1>Aspect Ratio Finder & Cropper</h1>
+        <p>This web application is designed to assist users in optimizing their images for tasks such as PyraCanny, CPDS, or inpainting. It addresses a common challenge faced by Fooocus users: the inability to determine the image aspect ratio, height, and width according to their own preferences. Users are limited to selecting from a predefined set of hard-coded aspect ratios and image dimensions.</p>
+        <p>The consequences of using an unmatched aspect ratio can vary significantly, ranging from cropped images to distorted proportions. By matching the aspect ratio of the input image with the target output dimensions, users can achieve expected results and enhance the performance of Stable Diffusion models.</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <p>Click or drag an image here to upload</p>
+            <input type="file" accept="image/*" id="imageUpload" />
+        </div>
+        
+        <div id="imageInfo" class="image-info hidden"></div>
+        
+        <div id="imagePreviewContainer" class="image-preview-container hidden">
+            <img id="preview" />
+        </div>
+        
+        <div id="cropperControls" class="hidden">
+            <h2>Crop to Best Aspect Ratio</h2>
+            <p id="suggestedRatio"></p>
+            <p><strong>Note:</strong> The filename for the cropped image will follow this format: <code>originalFilename-cropped-AR1by3.extension</code>. For example, if the original filename is <code>abc.jpg</code> and the final aspect ratio is <code>1:3</code>, the filename will be <code>abc-cropped-AR1by3.jpg</code>.</p>
+            <label for="aspectRatioSelect">Choose an Aspect Ratio:</label>
+            <select id="aspectRatioSelect"></select>
+            <button id="revertToSuggested" class="btn hidden">Revert to Suggested Ratio</button>
+            <div class="action-buttons">
+                <button id="cropBtn" class="btn btn-success">Crop Image</button>
+                <button id="cancelCropBtn" class="btn">Cancel</button>
+            </div>
+        </div>
+        
+        <div id="croppedImageContainer" class="hidden">
+            <h2>Cropped Image</h2>
+            <div class="image-preview-container">
+                <img id="croppedImage" />
+            </div>
+            <div id="finalAspectInfo" class="image-info hidden"></div>
+            <div class="download-options">
+                <h3>Download Options</h3>
+                <div class="action-buttons">
+                    <button id="downloadJpeg" class="btn">Download as JPEG</button>
+                    <button id="downloadPng" class="btn">Download as PNG</button>
+                  <br>
+<br>
+                    <button id="startOver" class="btn">Start Over</button>
+                </div>
+            </div>
+        </div>
+
+        <button id="themeToggle" class="btn">Toggle Dark/Light Theme</button>
+    </div>
+    
+    <script>
+        const aspectRatios = [
+            { ratio: '1:2', width: 1, height: 2 },
+            { ratio: '11:21', width: 11, height: 21 },
+            { ratio: '4:7', width: 4, height: 7 },
+            { ratio: '3:5', width: 3, height: 5 },
+            { ratio: '13:19', width: 13, height: 19 },
+            { ratio: '13:18', width: 13, height: 18 },
+            { ratio: '7:9', width: 7, height: 9 },
+            { ratio: '14:17', width: 14, height: 17 },
+            { ratio: '15:17', width: 15, height: 17 },
+            { ratio: '15:16', width: 15, height: 16 },
+            { ratio: '1:1', width: 1, height: 1 },
+            { ratio: '16:15', width: 16, height: 15 },
+            { ratio: '17:15', width: 17, height: 15 },
+            { ratio: '17:14', width: 17, height: 14 },
+            { ratio: '9:7', width: 9, height: 7 },
+            { ratio: '18:13', width: 18, height: 13 },
+            { ratio: '19:13', width: 19, height: 13 },
+            { ratio: '5:3', width: 5, height: 3 },
+            { ratio: '7:4', width: 7, height: 4 },
+            { ratio: '21:11', width: 21, height: 11 },
+            { ratio: '2:1', width: 2, height: 1 },
+            { ratio: '23:11', width: 23, height: 11 },
+            { ratio: '12:5', width: 12, height: 5 },
+            { ratio: '5:2', width: 5, height: 2 },
+            { ratio: '26:9', width: 26, height: 9 },
+            { ratio: '3:1', width: 3, height: 1 },
+        ];
+        
+        let cropper;
+        let currentImage;
+        let closestAspectRatio;
+        let finalAspectRatio; // To store the final selected aspect ratio
+        let originalFilename; // To store the original filename
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadArea = document.getElementById('uploadArea');
+            const imageUpload = document.getElementById('imageUpload');
+            const aspectRatioSelect = document.getElementById('aspectRatioSelect');
+            const revertToSuggested = document.getElementById('revertToSuggested');
+            const themeToggle = document.getElementById('themeToggle');
+            
+            uploadArea.addEventListener('click', function() {
+                imageUpload.click();
+            });
+            
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#4a90e2';
+            });
+            
+            uploadArea.addEventListener('dragleave', function() {
+                this.style.borderColor = '#ddd';
+            });
+            
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#ddd';
+                
+                if (e.dataTransfer.files.length) {
+                    imageUpload.files = e.dataTransfer.files;
+                    handleImageUpload();
+                }
+            });
+            
+            imageUpload.addEventListener('change', handleImageUpload);
+            
+            document.getElementById('cropBtn').addEventListener('click', cropImage);
+            document.getElementById('cancelCropBtn').addEventListener('click', resetCropper);
+            document.getElementById('downloadJpeg').addEventListener('click', () => downloadImage('jpeg'));
+            document.getElementById('downloadPng').addEventListener('click', () => downloadImage('png'));
+            document.getElementById('startOver').addEventListener('click', startOver);
+            aspectRatioSelect.addEventListener('change', updateAspectRatio);
+            revertToSuggested.addEventListener('click', revertToInitialAspectRatio);
+            themeToggle.addEventListener('click', toggleTheme);
+        });
+        
+        function handleImageUpload() {
+            const file = document.getElementById('imageUpload').files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (cropper) {
+                    cropper.destroy();
+                    cropper = null;
+                }
+                
+                const previewContainer = document.getElementById('imagePreviewContainer');
+                const preview = document.getElementById('preview');
+                const imageInfo = document.getElementById('imageInfo');
+                
+                preview.src = e.target.result;
+                currentImage = e.target.result;
+                originalFilename = file.name.split('.').slice(0, -1).join('.'); // Get the original filename without extension
+                
+                preview.onload = function() {
+                    const width = preview.naturalWidth;
+                    const height = preview.naturalHeight;
+                    
+                    closestAspectRatio = findClosestAspectRatio(width, height);
+                    
+                    imageInfo.innerHTML = `
+                        <p><strong>Original Dimensions:</strong> ${width}px × ${height}px</p>
+                        <p><strong>Best Matching Aspect Ratio:</strong> ${closestAspectRatio.ratio}</p>
+                        <p><strong>Suggested Dimensions:</strong> 
+                           ${Math.round(closestAspectRatio.width * (height / closestAspectRatio.height))}px × 
+                           ${Math.round(closestAspectRatio.height * (width / closestAspectRatio.width))}px</p>
+                    `;
+                    
+                    cropper = new Cropper(preview, {
+                        aspectRatio: closestAspectRatio.width / closestAspectRatio.height,
+                        viewMode: 1,
+                        guides: true,
+                        autoCropArea: 1,
+                    });
+                    
+                    imageInfo.classList.remove('hidden');
+                    previewContainer.classList.remove('hidden');
+                    document.getElementById('cropperControls').classList.remove('hidden');
+                    document.getElementById('suggestedRatio').textContent = 
+                        `Suggested aspect ratio: ${closestAspectRatio.ratio}`;
+                    
+                    // Populate aspect ratio select options
+                    populateAspectRatioSelect();
+                    revertToSuggested.classList.remove('hidden');
+                    
+                    document.getElementById('croppedImageContainer').classList.add('hidden');
+                };
+            };
+            
+            reader.readAsDataURL(file);
+        }
+        
+        function populateAspectRatioSelect() {
+            const aspectRatioSelect = document.getElementById('aspectRatioSelect');
+            aspectRatioSelect.innerHTML = ''; // Clear existing options
+            
+            aspectRatios.forEach(aspect => {
+                const option = document.createElement('option');
+                option.value = aspect.ratio;
+                option.textContent = aspect.ratio;
+                aspectRatioSelect.appendChild(option);
+            });
+            
+            // Set the closest aspect ratio as the selected option
+            aspectRatioSelect.value = closestAspectRatio.ratio;
+            finalAspectRatio = closestAspectRatio; // Set the final aspect ratio to the closest one
+        }
+        
+        function findClosestAspectRatio(width, height) {
+            let closestAspectRatio;
+            let closestDifference = Infinity;
+            
+            aspectRatios.forEach(aspect => {
+                const ratioWidth = aspect.width;
+                const ratioHeight = aspect.height;
+                
+                const difference = Math.abs((width / height) - (ratioWidth / ratioHeight));
+                
+                if (difference < closestDifference) {
+                    closestDifference = difference;
+                    closestAspectRatio = aspect;
+                }
+            });
+            
+            return closestAspectRatio;
+        }
+        
+        function updateAspectRatio() {
+            const selectedRatio = aspectRatioSelect.value;
+            const aspect = aspectRatios.find(a => a.ratio === selectedRatio);
+            
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+            
+            const preview = document.getElementById('preview');
+            cropper = new Cropper(preview, {
+                aspectRatio: aspect.width / aspect.height,
+                viewMode: 1,
+                guides: true,
+                autoCropArea: 1,
+            });
+            
+            finalAspectRatio = aspect; // Update the final aspect ratio to the selected one
+        }
+        
+        function revertToInitialAspectRatio() {
+            const aspectRatioSelect = document.getElementById('aspectRatioSelect');
+            aspectRatioSelect.value = closestAspectRatio.ratio;
+            updateAspectRatio();
+        }
+        
+        function cropImage() {
+            if (!cropper) return;
+            
+            const croppedCanvas = cropper.getCroppedCanvas({
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            });
+            
+            if (!croppedCanvas) return;
+            
+            const croppedImage = document.getElementById('croppedImage');
+            croppedImage.src = croppedCanvas.toDataURL('image/png');
+            
+            // Display final aspect ratio and dimensions
+            const finalAspectInfo = document.getElementById('finalAspectInfo');
+            finalAspectInfo.innerHTML = `
+                <p><strong>Final Aspect Ratio:</strong> ${finalAspectRatio.ratio}</p>
+                <p><strong>Dimensions:</strong> ${croppedCanvas.width}px × ${croppedCanvas.height}px</p>
+            `;
+            finalAspectInfo.classList.remove('hidden');
+            
+            document.getElementById('croppedImageContainer').classList.remove('hidden');
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+            document.getElementById('cropperControls').classList.add('hidden');
+        }
+        
+        function resetCropper() {
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+            
+            const preview = document.getElementById('preview');
+            preview.src = currentImage;
+            
+            cropper = new Cropper(preview, {
+                aspectRatio: closestAspectRatio.width / closestAspectRatio.height,
+                viewMode: 1,
+                guides: true,
+                autoCropArea: 1,
+            });
+        }
+        
+        function downloadImage(format) {
+            const croppedImage = document.getElementById('croppedImage');
+            const link = document.createElement('a');
+            
+            const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+            const extension = format === 'jpeg' ? 'jpg' : 'png';
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = croppedImage.naturalWidth;
+            canvas.height = croppedImage.naturalHeight;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(croppedImage, 0, 0);
+            
+            const ratioForFilename = finalAspectRatio.ratio.replace(':', 'by'); // Use final aspect ratio
+            const filename = `${originalFilename}-cropped-AR${ratioForFilename}.${extension}`; // Updated filename format
+            
+            link.href = canvas.toDataURL(mimeType, format === 'jpeg' ? 0.92 : 1.0);
+            link.download = filename;
+            link.click();
+        }
+        
+        function startOver() {
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+            
+            document.getElementById('imageUpload').value = '';
+            document.getElementById('imageInfo').classList.add('hidden');
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+            document.getElementById('cropperControls').classList.add('hidden');
+            document.getElementById('croppedImageContainer').classList.add('hidden');
+            
+            document.getElementById('preview').src = '';
+            document.getElementById('croppedImage').src = '';
+            document.getElementById('finalAspectInfo').classList.add('hidden');
+            
+            currentImage = null;
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark');
+        }
+    </script>
+</body>
+</html>
